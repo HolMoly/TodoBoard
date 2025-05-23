@@ -21,17 +21,21 @@ export interface TodoState {
   // 메뉴 상태 관리 (전역)
   openMenuId: number | null;
 
-  // 액션들
-  fetchAllTodos: () => Promise<void>;
-  addTodo: (priority: PriorityType) => void;
+  // State setter 메서드들
+  setTodos: (todos: Todo[]) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: Error | null) => void;
+  setProcessedTodos: (processedTodos: ProcessedTodos) => void;
+  setOpenMenuId: (id: number | null) => void;
 
-  // Todo 아이템 액션
+  // Action 메서드들
+  fetchAllTodos: () => Promise<void>;
   toggleTodoComplete: (id: number) => Promise<void>;
+  addTodo: (priority: PriorityType) => void;
   editTodo: (id: number) => void;
   deleteTodo: (id: number) => void;
 
   // 메뉴 액션
-  setOpenMenuId: (id: number | null) => void;
   toggleMenu: (id: number) => void;
   closeMenu: () => void;
 }
