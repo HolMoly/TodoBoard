@@ -37,3 +37,36 @@ export async function fetchAllTodosFromApi(): Promise<Todo[]> {
 }
 
 // 다른 API 호출 함수들 (예: createTodo, updateTodo, deleteTodo)도 여기에 추가할 수 있습니다.
+
+/**
+ * 특정 할 일의 완료 상태를 업데이트합니다.
+ */
+export async function updateTodoCompletionFromApi(
+  id: number,
+  isCompleted: boolean,
+): Promise<Todo> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/todos?id=${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ isCompleted }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      const errorMessage =
+        errorData?.details ||
+        errorData?.error ||
+        `Failed to update todo completion status: ${response.status}`;
+      throw new Error(errorMessage);
+    }
+
+    const updatedTodo = await response.json();
+    return updatedTodo;
+  } catch (error) {
+    console.error('Error in updateTodoCompletionFromApi:', error);
+    throw error;
+  }
+}
