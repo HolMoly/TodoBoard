@@ -2,36 +2,97 @@ import { create } from 'zustand';
 import { Todo, PriorityType } from '@/types/todo';
 import { fetchAllTodosFromApi } from '@/libs/todoApi'; // API 호출 함수 임포트
 
-// 스토어 상태의 타입 정의
+// ===== 1. 데이터 처리 헬퍼 함수들 =====
+// 모든 todos를 날짜별로 정렬하는 함수
+const sortTodosByDate = (todos: Todo[]): Todo[] => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  return [...todos].sort((a, b) => {
+    // dueDate가 없는 경우 맨 뒤로
+    if (!a.dueDate && !b.dueDate) return 0;
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+
+    const dateA = new Date(a.dueDate);
+    const dateB = new Date(b.dueDate);
+    dateA.setHours(0, 0, 0, 0);
+    dateB.setHours(0, 0, 0, 0);
+
+    // 현재 날짜와의 거리 계산 (절댓값)
+    const diffA = Math.abs(dateA.getTime() - today.getTime());
+    const diffB = Math.abs(dateB.getTime() - today.getTime());
+
+    return diffA - diffB;
+  });
+};
+
+// 정렬된 todos를 priority별로 분류하는 함수
+const filterTodosByPriority = (
+  sortedTodos: Todo[],
+  priority: PriorityType,
+): Todo[] => {
+  return sortedTodos.filter((todo) => todo.priority === priority);
+};
+
+// 모든 데이터를 한 번에 처리하는 함수
+const processAllTodos = (todos: Todo[]) => {
+  const sortedTodos = sortTodosByDate(todos);
+
+  return {
+    high: filterTodosByPriority(sortedTodos, 'high'),
+    medium: filterTodosByPriority(sortedTodos, 'medium'),
+    low: filterTodosByPriority(sortedTodos, 'low'),
+    someday: filterTodosByPriority(sortedTodos, 'someday'),
+  };
+};
+
+// ===== 2. 스토어 타입 정의 =====
 interface TodoState {
-  todos: Todo[]; // 전체 할 일 목록
-  isLoading: boolean; // 데이터 로딩 중 상태
-  error: Error | null; // 에러 상태
+  // 원본 데이터
+  todos: Todo[];
+  isLoading: boolean;
+  error: Error | null;
 
-  // 상태를 변경하는 액션 함수들의 타입 정의
-  fetchAllTodos: () => Promise<void>; // 모든 할 일을 가져오는 액션
-  // 여기에 나중에 필요한 다른 액션들을 추가할 수 있습니다.
-  // 예: addTodo, updateTodo, deleteTodo 등
+  // 처리된 데이터들 (하나의 객체로 묶음)
+  processedTodos: {
+    high: Todo[];
+    medium: Todo[];
+    low: Todo[];
+    someday: Todo[];
+  };
 
-  // 특정 조건에 맞는 할 일들을 선택하는 셀렉터 함수들의 타입 정의 (선택 사항)
-  // getTodosByPriority: (priority: PriorityType) => Todo[];
+  // 액션
+  fetchAllTodos: () => Promise<void>;
 }
 
-// Zustand 스토어 생성
+// ===== 3. 스토어 생성 =====
 export const useTodoStore = create<TodoState>((set, get) => ({
-  // 초기 상태 값
+  // 초기 상태
   todos: [],
   isLoading: false,
   error: null,
-
-  // 액션 함수 구현
+  // 초기 처리된 데이터들
+  processedTodos: {
+    high: [],
+    medium: [],
+    low: [],
+    someday: [],
+  },
+  // 액션: 데이터 가져오기 및 한 번에 처리
   fetchAllTodos: async () => {
-    set({ isLoading: true, error: null }); // 로딩 시작, 이전 에러 초기화
+    set({ isLoading: true, error: null });
     try {
-      const fetchedTodos = await fetchAllTodosFromApi(); // API 호출
-      set({ todos: fetchedTodos, isLoading: false }); // 성공: 데이터 저장, 로딩 종료
+      const fetchedTodos = await fetchAllTodosFromApi();
+      // 한 번만 정렬/분류 처리
+      const processedData = processAllTodos(fetchedTodos);
+
+      set({
+        todos: fetchedTodos,
+        isLoading: false,
+        processedTodos: processedData,
+      });
     } catch (err) {
-      // 실패: 에러 저장, 로딩 종료
       set({
         error: err instanceof Error ? err : new Error('Failed to fetch todos'),
         isLoading: false,
@@ -39,17 +100,4 @@ export const useTodoStore = create<TodoState>((set, get) => ({
       console.error('Error fetching todos in store:', err);
     }
   },
-
-  // 예시: Priority별로 필터링하는 셀렉터 (필요하다면 사용)
-  // getTodosByPriority: (priority: PriorityType) => {
-  //   return get().todos.filter(todo => todo.priority === priority);
-  // },
 }));
-
-// 스토어 사용 예시 (컴포넌트 내부에서):
-// const todos = useTodoStore(state => state.todos);
-// const isLoading = useTodoStore(state => state.isLoading);
-// const fetchAllTodos = useTodoStore(state => state.fetchAllTodos);
-// useEffect(() => {
-//   fetchAllTodos();
-// }, [fetchAllTodos]);
